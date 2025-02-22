@@ -102,18 +102,36 @@ class RayCaster:
         # ray casting
         self.fov = math.pi / 3
         self.half_fov = self.fov / 2
-        self.num_of_rays = comms.display.get_width() // 3
+        self.num_of_rays = comms.display.get_width() // 4
         self.depth = 80
 
         # pseudo 3d projection
         self.screen_distance = comms.display.get_width() / math.tan(self.half_fov)
-        self.scale = comms.display.get_width() // self.num_of_rays
+        self.scale = comms.display.get_width() / self.num_of_rays
 
         self.rays = []
         current_angle = self.character.angle - self.half_fov
         for ray in range(self.num_of_rays):
             self.rays.append(Ray(self.depth, character, world, offset=current_angle))
             current_angle += self.fov / self.num_of_rays
+
+    def render_walls(self, offset, proj_height, horizon, ray_num):
+        if proj_height < comms.display.get_height():
+            wall_column = self.test.subsurface(
+                offset * (self.test.get_width() - self.scale), 0, self.scale, self.test.get_height()
+            )
+            wall_column = pygame.transform.smoothscale(wall_column, (self.scale, proj_height))
+            wall_pos = (ray_num * self.scale, horizon - proj_height // 2)
+        else:
+            texture_height = self.test.get_height() * comms.display.get_height() / proj_height
+            wall_column = self.test.subsurface(
+                offset * (texture_height - self.scale), (self.test.get_height() // 2) - (texture_height // 2),
+                self.scale, texture_height
+            )
+            wall_column = pygame.transform.scale(wall_column, (self.scale, comms.display.get_height()))
+            wall_pos = (ray_num * self.scale, horizon - comms.display.get_height() / 2)
+
+        return wall_column, wall_pos
 
     def update(self):
         for ray_num, ray in enumerate(self.rays):
@@ -129,10 +147,5 @@ class RayCaster:
             #                  (ray_num * self.scale, (horizon - proj_height // 2),
             #                   self.scale, proj_height), 1)
 
-            wall_column = self.test.subsurface(
-                offset * (self.test.get_width() - self.scale), 0, self.scale, self.test.get_height()
-            )
-            wall_column = pygame.transform.scale(wall_column, (self.scale, proj_height))
-            wall_pos = (ray_num * self.scale, horizon - proj_height // 2)
-
+            wall_column, wall_pos = self.render_walls(offset, proj_height, horizon, ray_num)
             comms.display.blit(wall_column, wall_pos)

@@ -7,8 +7,8 @@ class Player:
     def __init__(self, tilemap):
         self.tilemap = tilemap
 
-        self.x = 100
-        self.y = 100
+        self.x = 350
+        self.y = 200
         self.z = 0
 
         self.speed = 2
