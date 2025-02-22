@@ -4,10 +4,13 @@ from settings import comms
 
 
 class Ray:
-    def __init__(self, depth, character, world_map):
+    def __init__(self, depth, character, world_map, offset=0):
         self.depth = depth
         self.character = character
         self.map = world_map
+        self.offset = offset
+
+        self.angle = self.character.angle + self.offset + 1e-6
 
     def check_horizontal_collision(self, sin, cos, tan):
         """returns the coordinate offsets and hypotenuse of the wall that is hit by the ray horizontally."""
@@ -26,8 +29,9 @@ class Ray:
         # increment until wall hit.
         # also, calculate the grid position of the tile being hit.
         for _ in range(self.depth):
-            if self.map.is_wall(((self.character.x + x) // self.map.cell_size) * self.map.cell_size,
-                                ((self.character.y + y) // self.map.cell_size) * self.map.cell_size):
+            position_x = ((self.character.x + x) // self.map.cell_size) * self.map.cell_size
+            position_y = ((self.character.y + y) // self.map.cell_size) * self.map.cell_size
+            if self.map.is_wall(position_x, position_y):
                 break
             x += dx
             y += dy
@@ -51,8 +55,9 @@ class Ray:
 
         # increment until wall hit.
         for _ in range(self.depth):
-            if self.map.is_wall(((self.character.x + x) // self.map.cell_size) * self.map.cell_size,
-                                ((self.character.y + y) // self.map.cell_size) * self.map.cell_size):
+            position_x = ((self.character.x + x) // self.map.cell_size) * self.map.cell_size
+            position_y = ((self.character.y + y) // self.map.cell_size) * self.map.cell_size
+            if self.map.is_wall(position_x, position_y):
                 break
             x += dx
             y += dy
@@ -61,10 +66,11 @@ class Ray:
 
         return x, y, hyp
 
-    def update(self, angle):
-        sin = math.sin(angle)
-        cos = math.cos(angle)
-        tan = math.tan(angle)
+    def update(self):
+        self.angle = self.character.angle + self.offset + 1e-6
+        sin = math.sin(self.angle)
+        cos = math.cos(self.angle)
+        tan = math.tan(self.angle)
 
         # get the collision points, and choose the one with the smallest hypotenuse.
         x_hor, y_hor, hyp_hor = self.check_horizontal_collision(sin, cos, tan)
@@ -72,11 +78,17 @@ class Ray:
 
         if hyp_hor < hyp_vert:
             x, y = self.character.x + x_hor, self.character.y + y_hor
+            hyp = hyp_hor
+            offset = (x % self.map.cell_size) / self.map.cell_size
         else:
             x, y = self.character.x + x_vert, self.character.y + y_vert
+            hyp = hyp_vert
+            offset = (y % self.map.cell_size) / self.map.cell_size
 
         pygame.draw.line(comms.screen, (255, 255, 0), self.character.get_position(),
                          (x, y), 2)
+
+        return x, y, hyp, offset
 
 
 class RayCaster:
@@ -84,16 +96,43 @@ class RayCaster:
         self.character = character
         self.world = world
 
+        # render
+        self.test = pygame.image.load("testassets/1.png").convert_alpha()
+
+        # ray casting
         self.fov = math.pi / 3
         self.half_fov = self.fov / 2
-        self.num_of_rays = 150
-        self.depth = 100
+        self.num_of_rays = comms.display.get_width() // 3
+        self.depth = 80
 
-        self.ray = Ray(self.depth, character, world)
+        # pseudo 3d projection
+        self.screen_distance = comms.display.get_width() / math.tan(self.half_fov)
+        self.scale = comms.display.get_width() // self.num_of_rays
+
+        self.rays = []
+        current_angle = self.character.angle - self.half_fov
+        for ray in range(self.num_of_rays):
+            self.rays.append(Ray(self.depth, character, world, offset=current_angle))
+            current_angle += self.fov / self.num_of_rays
 
     def update(self):
-        current_angle = self.character.angle - self.half_fov + 1e-6
+        for ray_num, ray in enumerate(self.rays):
+            x, y, depth, offset = ray.update()
 
-        for _ in range(self.num_of_rays):
-            self.ray.update(current_angle)
-            current_angle += self.fov / self.num_of_rays
+            depth *= math.cos(self.character.angle - ray.angle)
+            proj_height = ((self.screen_distance * self.world.cell_size / 2) / (depth + 1e-6))
+            brightness = max(255 * (0.9 ** (depth * 0.02)), 30)
+            color = (int(brightness), int(brightness), int(brightness))
+            horizon = (comms.display.get_height() // 2) - int(math.tan(self.character.pitch) * self.screen_distance)
+
+            # pygame.draw.rect(comms.display, color,
+            #                  (ray_num * self.scale, (horizon - proj_height // 2),
+            #                   self.scale, proj_height), 1)
+
+            wall_column = self.test.subsurface(
+                offset * (self.test.get_width() - self.scale), 0, self.scale, self.test.get_height()
+            )
+            wall_column = pygame.transform.scale(wall_column, (self.scale, proj_height))
+            wall_pos = (ray_num * self.scale, horizon - proj_height // 2)
+
+            comms.display.blit(wall_column, wall_pos)
