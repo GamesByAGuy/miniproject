@@ -16,8 +16,8 @@ class Player:
         self.pitch = 0
         self.radius = 15
 
-        self.mouse_border_x = ((comms.display.get_width() // 2) - 100, (comms.display.get_width() // 2) + 100)
-        self.mouse_border_y = ((comms.display.get_height() // 2) - 100, (comms.display.get_height() // 2) + 100)
+        self.mouse_border_x = ((comms.display.get_width() // 2) - 200, (comms.display.get_width() // 2) + 200)
+        self.mouse_border_y = ((comms.display.get_height() // 2) - 200, (comms.display.get_height() // 2) + 200)
         self.rel_x = 0
         self.rel_y = 0
         self.max_rel = 40
@@ -32,8 +32,13 @@ class Player:
         return int(self.x // 60), int(self.y // 60)
 
     def check_wall(self, x, y):
-        return (((self.x + x) // self.tilemap.cell_size) * self.tilemap.cell_size,
-                ((self.y + y) // self.tilemap.cell_size) * self.tilemap.cell_size) not in self.tilemap.wall_coordinates
+        return ((((self.x + x) // self.tilemap.cell_size) * self.tilemap.cell_size,
+                ((self.y + y) // self.tilemap.cell_size) * self.tilemap.cell_size)
+                not in self.tilemap.wall_coordinates)
+
+    def get_wall(self, x, y):
+        return ((self.x + x) // self.tilemap.cell_size * self.tilemap.cell_size,
+                (self.y + y) // self.tilemap.cell_size * self.tilemap.cell_size)
 
     def check_collision(self, dx, dy):
         if self.check_wall(int(dx * self.radius), 0):
@@ -91,3 +96,4 @@ class Player:
         self.angle %= math.tau
 
         self.draw()
+        pygame.draw.circle(comms.screen, (0, 255, 255), (self.x + self.radius, self.y), 3)

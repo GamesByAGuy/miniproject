@@ -116,20 +116,25 @@ class RayCaster:
             current_angle += self.fov / self.num_of_rays
 
     def render_walls(self, offset, proj_height, horizon, ray_num):
-        if proj_height < comms.display.get_height():
-            wall_column = self.test.subsurface(
-                offset * (self.test.get_width() - self.scale), 0, self.scale, self.test.get_height()
-            )
-            wall_column = pygame.transform.smoothscale(wall_column, (self.scale, proj_height))
-            wall_pos = (ray_num * self.scale, horizon - proj_height // 2)
-        else:
-            texture_height = self.test.get_height() * comms.display.get_height() / proj_height
-            wall_column = self.test.subsurface(
-                offset * (texture_height - self.scale), (self.test.get_height() // 2) - (texture_height // 2),
-                self.scale, texture_height
-            )
-            wall_column = pygame.transform.scale(wall_column, (self.scale, comms.display.get_height()))
-            wall_pos = (ray_num * self.scale, horizon - comms.display.get_height() / 2)
+        # if proj_height < comms.display.get_height():
+        wall_column = self.test.subsurface(
+            offset * (self.test.get_width() - self.scale), 0, self.scale, self.test.get_height()
+        )
+
+        wall_column = pygame.transform.scale(wall_column, (self.scale, proj_height))
+        wall_pos = (ray_num * self.scale, horizon - proj_height // 2)
+        # else:
+        #     texture_height = self.test.get_height() * (comms.display.get_height() / proj_height)
+        #     vertical_distance = max(0, min(horizon, self.test.get_height() - texture_height))
+        #     vertical_position = max(horizon - proj_height // 2, horizon - texture_height)
+        #     # print(vertical_position)
+        #     wall_column = self.test.subsurface(
+        #         offset * (self.test.get_width() - self.scale),
+        #         vertical_distance,
+        #         self.scale, texture_height
+        #     )
+        #     wall_column = pygame.transform.scale(wall_column, (self.scale, comms.display.get_height()))
+        #     wall_pos = (ray_num * self.scale, vertical_position)
 
         return wall_column, wall_pos
 
@@ -138,14 +143,19 @@ class RayCaster:
             x, y, depth, offset = ray.update()
 
             depth *= math.cos(self.character.angle - ray.angle)
+            if depth < 10:
+                depth = 10
+
             proj_height = ((self.screen_distance * self.world.cell_size / 2) / (depth + 1e-6))
             brightness = max(255 * (0.9 ** (depth * 0.02)), 30)
             color = (int(brightness), int(brightness), int(brightness))
             horizon = (comms.display.get_height() // 2) - int(math.tan(self.character.pitch) * self.screen_distance)
 
-            # pygame.draw.rect(comms.display, color,
-            #                  (ray_num * self.scale, (horizon - proj_height // 2),
-            #                   self.scale, proj_height), 1)
+            pygame.draw.rect(comms.display, color,
+                             (ray_num * self.scale, (horizon - proj_height // 2),
+                              self.scale, proj_height))
 
             wall_column, wall_pos = self.render_walls(offset, proj_height, horizon, ray_num)
             comms.display.blit(wall_column, wall_pos)
+            # pygame.draw.circle(comms.display, (255, 0, 0),
+            #                    (ray_num * self.scale, (horizon - proj_height // 2)), 3)
