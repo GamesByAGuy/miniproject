@@ -2,7 +2,7 @@ import pygame
 from settings import comms
 from entities.player import Player
 from entities.map import Map
-from tools.raycaster import RayCaster
+from tools.camera import Camera
 from tools.renderer import Renderer
 pygame.init()
 
@@ -13,7 +13,7 @@ class Manager:
         self.state = ""
         self.map = Map()
         self.player = Player(self.map)
-        self.raycaster = RayCaster(self.player, self.map)
+        self.raycaster = Camera(character=self.player, world=self.map)
         self.renderer = Renderer()
 
         pygame.mouse.set_visible(False)
@@ -22,6 +22,7 @@ class Manager:
         while True:
             comms.screen.fill((0, 0, 0))
             comms.display.fill((0, 0, 0))
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     exit()
@@ -29,6 +30,7 @@ class Manager:
             self.map.draw()
             self.player.update()
             self.raycaster.update()
+            self.renderer.render()
             comms.display.blit(pygame.transform.scale_by(comms.screen, (0.25, 0.25)), (5, 5))
             pygame.display.update()
             comms.clock.tick(60)

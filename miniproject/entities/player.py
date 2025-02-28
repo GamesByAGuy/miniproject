@@ -11,6 +11,8 @@ class Player:
         self.y = 200
         self.z = 0
 
+        self.velocity = pygame.math.Vector2(0, 0)
+
         self.speed = 2
         self.angle = 0
         self.pitch = 0
@@ -28,23 +30,11 @@ class Player:
     def get_position(self):
         return self.x, self.y
 
-    def map_pos(self):
-        return int(self.x // 60), int(self.y // 60)
-
-    def check_wall(self, x, y):
-        return ((((self.x + x) // self.tilemap.cell_size) * self.tilemap.cell_size,
-                ((self.y + y) // self.tilemap.cell_size) * self.tilemap.cell_size)
-                not in self.tilemap.wall_coordinates)
-
-    def get_wall(self, x, y):
-        return ((self.x + x) // self.tilemap.cell_size * self.tilemap.cell_size,
-                (self.y + y) // self.tilemap.cell_size * self.tilemap.cell_size)
-
-    def check_collision(self, dx, dy):
-        if self.check_wall(int(dx * self.radius), 0):
-            self.x += dx
-        if self.check_wall(0, int(dy * self.radius)):
-            self.y += dy
+    def check_collision(self):
+        if not self.tilemap.is_wall(int(self.x + self.velocity.x * self.radius), self.y):
+            self.x += self.velocity.x
+        if not self.tilemap.is_wall(self.x, int(self.y + self.velocity.y * self.radius)):
+            self.y += self.velocity.y
 
     def get_mouse_movement(self):
         mx, my = pygame.mouse.get_pos()
@@ -62,38 +52,45 @@ class Player:
 
         return self.rel_x, self.rel_y
 
-    def update(self):
-        key = pygame.key.get_pressed()
-        dx, dy = 0, 0
+    def handle_input(self, key, forward=pygame.K_w, backward=pygame.K_s, left=pygame.K_a, right=pygame.K_d):
         sin, cos = math.sin(self.angle), math.cos(self.angle)
         speed_sin, speed_cos = self.speed * sin, self.speed * cos
 
-        if key[pygame.K_e]:
-            self.angle = 0
+        self.velocity.x = 0
+        self.velocity.y = 0
 
-        if key[pygame.K_w]:
-            dx = speed_cos
-            dy = speed_sin
-        elif key[pygame.K_s]:
-            dx = -speed_cos
-            dy = -speed_sin
+        if key[forward]:
+            self.velocity.x = speed_cos
+            self.velocity.y = speed_sin
+        elif key[backward]:
+            self.velocity.x = -speed_cos
+            self.velocity.y = -speed_sin
 
-        if key[pygame.K_a]:
-            dx = speed_sin
-            dy = -speed_cos
-        elif key[pygame.K_d]:
-            dx = -speed_sin
-            dy = speed_cos
+        if key[left]:
+            self.velocity.x = speed_sin
+            self.velocity.y = -speed_cos
+        elif key[right]:
+            self.velocity.x = -speed_sin
+            self.velocity.y = speed_cos
+
+    def update(self):
+        key = pygame.key.get_pressed()
+
+        self.handle_input(key)
+
+        if key[pygame.K_g]:
+            self.z += 0.1
+        elif key[pygame.K_b]:
+            self.z -= 0.1
 
         rel_x, rel_y = self.get_mouse_movement()
 
         self.pitch = max(min(self.pitch + (rel_y * 0.002), math.pi / 2), -math.pi / 2)
-
-        self.check_collision(dx, dy)
-
         self.angle += rel_x * 0.002
-
         self.angle %= math.tau
 
+        self.z = min(max(self.z, 1), 2)
+
+        self.check_collision()
+
         self.draw()
-        pygame.draw.circle(comms.screen, (0, 255, 255), (self.x + self.radius, self.y), 3)

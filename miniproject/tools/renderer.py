@@ -1,13 +1,14 @@
-from settings import comms
+from settings import comms, data
 import pygame
 
 
 class Renderer:
     def __init__(self):
-        self.textures = {
-            1: pygame.image.load("testassets/1.png")
-        }
+        self.test = 1
 
-    def render(self, objects_to_render):
-        for depth, image, pos in self.textures:
-            comms.display.blit(image, pos)
+    def render(self):
+        if data.renderable_textures:
+            comms.display.blits(data.renderable_textures)
+
+        data.renderable_textures.clear()
+        self.test = 1

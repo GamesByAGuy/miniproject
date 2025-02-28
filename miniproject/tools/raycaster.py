@@ -1,6 +1,6 @@
 import math
 import pygame
-from settings import comms
+from settings import comms, data
 
 
 class Ray:
@@ -9,6 +9,9 @@ class Ray:
         self.character = character
         self.map = world_map
         self.offset = offset
+
+        self.horizontal_collisions = []
+        self.vertical_collisions = []
 
         self.angle = self.character.angle + self.offset + 1e-6
 
@@ -31,7 +34,8 @@ class Ray:
         for _ in range(self.depth):
             position_x = ((self.character.x + x) // self.map.cell_size) * self.map.cell_size
             position_y = ((self.character.y + y) // self.map.cell_size) * self.map.cell_size
-            if self.map.is_wall(position_x, position_y):
+            self.horizontal_collisions.append((self.character.x + x, self.character.y + y))
+            if self.map.is_wall(self.character.x + x, self.character.y + y):
                 break
             x += dx
             y += dy
@@ -57,7 +61,8 @@ class Ray:
         for _ in range(self.depth):
             position_x = ((self.character.x + x) // self.map.cell_size) * self.map.cell_size
             position_y = ((self.character.y + y) // self.map.cell_size) * self.map.cell_size
-            if self.map.is_wall(position_x, position_y):
+            self.vertical_collisions.append((self.character.x + x, self.character.y + y))
+            if self.map.is_wall(self.character.x + x, self.character.y + y):
                 break
             x += dx
             y += dy
@@ -80,15 +85,20 @@ class Ray:
             x, y = self.character.x + x_hor, self.character.y + y_hor
             hyp = hyp_hor
             offset = (x % self.map.cell_size) / self.map.cell_size
+            collision_list = self.horizontal_collisions
         else:
             x, y = self.character.x + x_vert, self.character.y + y_vert
             hyp = hyp_vert
             offset = (y % self.map.cell_size) / self.map.cell_size
+            collision_list = self.vertical_collisions
+
+        self.vertical_collisions = []
+        self.horizontal_collisions = []
 
         pygame.draw.line(comms.screen, (255, 255, 0), self.character.get_position(),
                          (x, y), 2)
 
-        return x, y, hyp, offset
+        return x, y, hyp, offset, collision_list
 
 
 class RayCaster:
@@ -96,14 +106,11 @@ class RayCaster:
         self.character = character
         self.world = world
 
-        # render
-        self.test = pygame.image.load("testassets/1.png").convert_alpha()
-
         # ray casting
         self.fov = math.pi / 3
         self.half_fov = self.fov / 2
-        self.num_of_rays = comms.display.get_width() // 4
-        self.depth = 80
+        self.num_of_rays = comms.display.get_width() // 6
+        self.depth = 20
 
         # pseudo 3d projection
         self.screen_distance = comms.display.get_width() / math.tan(self.half_fov)
@@ -115,32 +122,29 @@ class RayCaster:
             self.rays.append(Ray(self.depth, character, world, offset=current_angle))
             current_angle += self.fov / self.num_of_rays
 
-    def render_walls(self, offset, proj_height, horizon, ray_num):
-        # if proj_height < comms.display.get_height():
-        wall_column = self.test.subsurface(
-            offset * (self.test.get_width() - self.scale), 0, self.scale, self.test.get_height()
+    def render_walls(self, offset, proj_height, horizon, ray_num, texture):
+        wall_column = texture.subsurface(
+            offset * (texture.get_width() - self.scale), 0, self.scale, texture.get_height()
         )
 
         wall_column = pygame.transform.scale(wall_column, (self.scale, proj_height))
-        wall_pos = (ray_num * self.scale, horizon - proj_height // 2)
-        # else:
-        #     texture_height = self.test.get_height() * (comms.display.get_height() / proj_height)
-        #     vertical_distance = max(0, min(horizon, self.test.get_height() - texture_height))
-        #     vertical_position = max(horizon - proj_height // 2, horizon - texture_height)
-        #     # print(vertical_position)
-        #     wall_column = self.test.subsurface(
-        #         offset * (self.test.get_width() - self.scale),
-        #         vertical_distance,
-        #         self.scale, texture_height
-        #     )
-        #     wall_column = pygame.transform.scale(wall_column, (self.scale, comms.display.get_height()))
-        #     wall_pos = (ray_num * self.scale, vertical_position)
+        wall_pos = (ray_num * self.scale, (horizon - proj_height // 2) * self.character.z)
 
         return wall_column, wall_pos
 
+    def render_floor(self, proj_height, horizon, ray, collision_list):
+        pygame.draw.rect(comms.display, (0, 150, 0), (0, horizon,
+                                                      comms.display.get_width(),
+                                                      comms.display.get_height() - horizon))
+
+    def render_ceiling(self, horizon):
+        pygame.draw.rect(comms.display, (0, 0, 150), (0, 0,
+                                                      comms.display.get_width(),
+                                                      horizon))
+
     def update(self):
         for ray_num, ray in enumerate(self.rays):
-            x, y, depth, offset = ray.update()
+            x, y, depth, offset, collision_list = ray.update()
 
             depth *= math.cos(self.character.angle - ray.angle)
             if depth < 10:
@@ -149,13 +153,16 @@ class RayCaster:
             proj_height = ((self.screen_distance * self.world.cell_size / 2) / (depth + 1e-6))
             brightness = max(255 * (0.9 ** (depth * 0.02)), 30)
             color = (int(brightness), int(brightness), int(brightness))
-            horizon = (comms.display.get_height() // 2) - int(math.tan(self.character.pitch) * self.screen_distance)
+            horizon = ((comms.display.get_height() // 2) -
+                       int(math.tan(self.character.pitch) * self.screen_distance))
 
-            pygame.draw.rect(comms.display, color,
-                             (ray_num * self.scale, (horizon - proj_height // 2),
-                              self.scale, proj_height))
-
-            wall_column, wall_pos = self.render_walls(offset, proj_height, horizon, ray_num)
-            comms.display.blit(wall_column, wall_pos)
-            # pygame.draw.circle(comms.display, (255, 0, 0),
-            #                    (ray_num * self.scale, (horizon - proj_height // 2)), 3)
+            wall_column, wall_pos = self.render_walls(
+                offset,
+                proj_height,
+                horizon,
+                ray_num,
+                self.world.get_wall_texture(x, y)
+            )
+            self.render_floor(proj_height, horizon, ray, collision_list)
+            self.render_ceiling(horizon)
+            data.add_texture_slices(wall_column, wall_pos)
