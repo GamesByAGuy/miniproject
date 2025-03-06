@@ -24,5 +24,5 @@ def get_texture(image_path):
 
 
 # function to add wall slices and their respective positions in the directory
-def add_texture_slices(texture_slice, position):
-    renderable_textures.append((texture_slice, position))
+def add_texture_slices(texture_slice, position, depth):
+    renderable_textures.append((texture_slice, position, depth))

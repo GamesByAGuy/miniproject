@@ -1,5 +1,6 @@
 import math
 import pygame
+import numpy as np
 from settings import comms, data
 
 
@@ -32,9 +33,8 @@ class Ray:
         # increment until wall hit.
         # also, calculate the grid position of the tile being hit.
         for _ in range(self.depth):
-            position_x = ((self.character.x + x) // self.map.cell_size) * self.map.cell_size
-            position_y = ((self.character.y + y) // self.map.cell_size) * self.map.cell_size
-            self.horizontal_collisions.append((self.character.x + x, self.character.y + y))
+            hyp = math.hypot(x, y)
+            self.horizontal_collisions.append((self.character.x + x, self.character.y + y, hyp, "h"))
             if self.map.is_wall(self.character.x + x, self.character.y + y):
                 break
             x += dx
@@ -59,9 +59,8 @@ class Ray:
 
         # increment until wall hit.
         for _ in range(self.depth):
-            position_x = ((self.character.x + x) // self.map.cell_size) * self.map.cell_size
-            position_y = ((self.character.y + y) // self.map.cell_size) * self.map.cell_size
-            self.vertical_collisions.append((self.character.x + x, self.character.y + y))
+            hyp = math.hypot(x, y)
+            self.vertical_collisions.append((self.character.x + x, self.character.y + y, hyp, "v"))
             if self.map.is_wall(self.character.x + x, self.character.y + y):
                 break
             x += dx
@@ -111,6 +110,7 @@ class RayCaster:
         self.half_fov = self.fov / 2
         self.num_of_rays = comms.display.get_width() // 6
         self.depth = 20
+        self.horizon = comms.display.get_height() // 2
 
         # pseudo 3d projection
         self.screen_distance = comms.display.get_width() / math.tan(self.half_fov)
@@ -132,17 +132,20 @@ class RayCaster:
 
         return wall_column, wall_pos
 
-    def render_floor(self, proj_height, horizon, ray, collision_list):
-        pygame.draw.rect(comms.display, (0, 150, 0), (0, horizon,
-                                                      comms.display.get_width(),
-                                                      comms.display.get_height() - horizon))
+    def render_floor(self, horizon, ray, ray_num, collision_list):
+        pygame.draw.rect(comms.display, (20, 20, 20), (0, horizon,
+                                                          comms.display.get_width(),
+                                                          comms.display.get_height() - horizon))
 
     def render_ceiling(self, horizon):
-        pygame.draw.rect(comms.display, (0, 0, 150), (0, 0,
+        pygame.draw.rect(comms.display, (40, 40, 40), (0, 0,
                                                       comms.display.get_width(),
                                                       horizon))
 
     def update(self):
+        horizon = (comms.display.get_height() // 2) - int(math.tan(self.character.pitch) * self.screen_distance)
+        self.horizon = horizon
+
         for ray_num, ray in enumerate(self.rays):
             x, y, depth, offset, collision_list = ray.update()
 
@@ -153,8 +156,6 @@ class RayCaster:
             proj_height = ((self.screen_distance * self.world.cell_size / 2) / (depth + 1e-6))
             brightness = max(255 * (0.9 ** (depth * 0.02)), 30)
             color = (int(brightness), int(brightness), int(brightness))
-            horizon = ((comms.display.get_height() // 2) -
-                       int(math.tan(self.character.pitch) * self.screen_distance))
 
             wall_column, wall_pos = self.render_walls(
                 offset,
@@ -163,6 +164,6 @@ class RayCaster:
                 ray_num,
                 self.world.get_wall_texture(x, y)
             )
-            self.render_floor(proj_height, horizon, ray, collision_list)
+            self.render_floor(horizon, ray, ray_num, collision_list)
             self.render_ceiling(horizon)
-            data.add_texture_slices(wall_column, wall_pos)
+            data.add_texture_slices(wall_column, wall_pos, depth)

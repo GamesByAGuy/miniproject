@@ -9,7 +9,7 @@ class Player:
 
         self.x = 350
         self.y = 200
-        self.z = 0
+        self.z = 1
 
         self.velocity = pygame.math.Vector2(0, 0)
 
@@ -79,9 +79,9 @@ class Player:
         self.handle_input(key)
 
         if key[pygame.K_g]:
-            self.z += 0.1
+            self.z += 0.01
         elif key[pygame.K_b]:
-            self.z -= 0.1
+            self.z -= 0.01
 
         rel_x, rel_y = self.get_mouse_movement()
 
@@ -89,7 +89,7 @@ class Player:
         self.angle += rel_x * 0.002
         self.angle %= math.tau
 
-        self.z = min(max(self.z, 1), 2)
+        # self.z = min(max(self.z, 1), 2)
 
         self.check_collision()
 

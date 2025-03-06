@@ -1,6 +1,7 @@
 import pygame
 from settings import comms
 from entities.player import Player
+from entities.object import Object
 from entities.map import Map
 from tools.camera import Camera
 from tools.renderer import Renderer
@@ -15,6 +16,7 @@ class Manager:
         self.player = Player(self.map)
         self.raycaster = Camera(character=self.player, world=self.map)
         self.renderer = Renderer()
+        self.object = Object(self.map, self.player, self.raycaster)
 
         pygame.mouse.set_visible(False)
 
@@ -30,6 +32,7 @@ class Manager:
             self.map.draw()
             self.player.update()
             self.raycaster.update()
+            self.object.update()
             self.renderer.render()
             comms.display.blit(pygame.transform.scale_by(comms.screen, (0.25, 0.25)), (5, 5))
             pygame.display.update()
