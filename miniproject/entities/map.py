@@ -33,6 +33,24 @@ class Map:
         return ((x // self.cell_size) * self.cell_size,
                 (y // self.cell_size) * self.cell_size) in self.wall_coordinates
 
+    def is_character_in_cell(self, character_rect, ray_pos=(0, 0)):
+        tile_rect = pygame.Rect(
+            (ray_pos[0] // self.cell_size) * self.cell_size,
+            (ray_pos[1] // self.cell_size) * self.cell_size,
+            self.cell_size,
+            self.cell_size
+        )
+        return tile_rect.colliderect(character_rect)
+
+    def draw_rect(self, x, y):
+        tile_rect = pygame.Rect(
+            (x // self.cell_size) * self.cell_size,
+            (y // self.cell_size) * self.cell_size,
+            self.cell_size,
+            self.cell_size
+        )
+        pygame.draw.rect(comms.screen, (255, 255, 255), tile_rect, 2)
+
     def get_wall_index(self, x, y):
         return self.wall[
             min(max(int(y // self.cell_size), 0), len(self.wall) - 1)
